@@ -1,0 +1,14 @@
+# Build:  docker compose build        (or: npm run docker:build)
+# Push:   docker compose push         (or: npm run docker:push)
+# Run:    docker compose up -d
+services:
+  web:
+    # change the image name in .env (IMAGE=...) if needed
+    image: ${IMAGE:-registry.uwuenterprises.de/ueuenterprises:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uwuenterprises-web
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"

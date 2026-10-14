@@ -1,0 +1,14 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.local
+
+# editor / tooling
+.idea/
+.claude/
+*.tsbuildinfo
+
+# original (full-size) talent photos - only the optimised copies in public/ are used
+assets-src/
