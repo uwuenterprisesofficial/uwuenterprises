@@ -16,6 +16,14 @@ services:
       # first management account — only used while the database has no users yet
       ADMIN_USERNAME: ${ADMIN_USERNAME:-management}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}        # empty = a random one is printed in the container log
+      # optional: send access data to talents by mail (all of SMTP_HOST + MAIL_FROM needed)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}          # true = implicit TLS (port 465), false = STARTTLS (port 587)
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}                   # e.g. UwU Enterprises <noreply@uwuenterprises.de>
+      PUBLIC_URL: ${PUBLIC_URL:-}                 # e.g. https://uwuenterprises.de (login link in mails)
     volumes:
       - uwu-data:/data                            # database + uploaded pictures: BACK THIS UP
 

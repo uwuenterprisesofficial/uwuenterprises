@@ -8,6 +8,7 @@ import { COOKIE, config } from './config.js';
 import { db, type UserRow } from './db.js';
 import { purgeExpiredSessions, userForToken } from './security.js';
 import { seedIfEmpty } from './seed.js';
+import { checkMail } from './mail.js';
 import { authRoutes } from './routes/auth.js';
 import { publicRoutes } from './routes/public.js';
 import { talentRoutes } from './routes/talents.js';
@@ -77,6 +78,7 @@ app.setErrorHandler((err: Error & { statusCode?: number; code?: string }, _req, 
 });
 
 await seedIfEmpty();
+void checkMail();
 purgeExpiredSessions();
 setInterval(purgeExpiredSessions, 6 * 3600 * 1000).unref();
 

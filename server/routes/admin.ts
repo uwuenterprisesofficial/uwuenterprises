@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { db, q, tx } from '../db.js';
 import { removeTalentFiles } from '../media.js';
-import { destroyUserSessions, hashPassword, passwordProblem } from '../security.js';
+import { destroyUserSessions, hashPassword, passwordProblem, verifyPassword } from '../security.js';
+import { mailConfig, mailEnabled, sendAccessMail } from '../mail.js';
 import { ValidationError, slugify, toEditable, validateOptionalEmail, validateSlug, validateUsername } from '../talents.js';
 
 function requireManagement(req: FastifyRequest, reply: FastifyReply): boolean {
@@ -17,6 +18,36 @@ export async function adminRoutes(app: FastifyInstance) {
   app.addHook('preHandler', async (req, reply) => { if (!requireManagement(req, reply)) return reply; });
 
   app.get('/talents', async () => all());
+
+  /** is automatic mail sending configured? */
+  app.get('/mail-status', async () => ({ enabled: mailEnabled, from: mailEnabled ? mailConfig.from : '' }));
+
+  /**
+   * Sends the access data to the e-mail stored on the talent's account.
+   * Only works while the temporary password is still unchanged (first login pending) and only
+   * with that exact password, so it can neither leak other passwords nor be used as a mail relay.
+   */
+  app.post<{ Params: { id: string }; Body: { password?: unknown; reset?: unknown } }>('/talents/:id/send-access', async (req, reply) => {
+    if (!mailEnabled) return reply.code(503).send({ error: 'Mail-Versand ist nicht eingerichtet (SMTP_HOST / MAIL_FROM fehlen).' });
+    const id = Number(req.params.id);
+    const t = q.talentById(id);
+    const u = q.userOfTalent(id);
+    if (!t || !u) return reply.code(404).send({ error: 'Kein Account für dieses Talent.' });
+    if (!u.email) return reply.code(400).send({ error: 'Für diesen Account ist keine E-Mail-Adresse hinterlegt.' });
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!u.must_change || !(await verifyPassword(password, u.password_hash))) {
+      return reply.code(400).send({ error: 'Das vorläufige Passwort stimmt nicht (mehr). Bitte erzeuge ein neues Passwort.' });
+    }
+    const host = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
+    const base = mailConfig.publicUrl || `${req.protocol}://${host}`;
+    try {
+      await sendAccessMail({ to: u.email, name: t.name, username: u.username, password, loginUrl: `${base}/creator`, reset: req.body?.reset === true });
+    } catch (e) {
+      req.log.error(e);
+      return reply.code(502).send({ error: `Die Mail konnte nicht gesendet werden: ${(e as Error).message}` });
+    }
+    return { ok: true, to: u.email };
+  });
 
   /** new talent + their login (they must choose their own password at first login) */
   app.post<{ Body: { name?: unknown; slug?: unknown; username?: unknown; password?: unknown; category?: unknown; email?: unknown } }>('/talents', async (req, reply) => {

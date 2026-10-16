@@ -53,9 +53,12 @@ export default function AdminPanel() {
   const [error, setError] = useState('');
   const [creds, setCreds] = useState<Credential[]>([]);
   const [busy, setBusy] = useState(false);
+  const [mail, setMail] = useState<{ enabled: boolean; from: string }>({ enabled: false, from: '' });
+  const [sent, setSent] = useState<Record<number, { ok: boolean; text: string }>>({});
 
   const load = () => api.get<EditableTalent[]>('/api/admin/talents').then(setTalents).catch((e: Error) => setError(e.message));
   useEffect(() => { void load(); }, []);
+  useEffect(() => { api.get<{ enabled: boolean; from: string }>('/api/admin/mail-status').then(setMail).catch(() => {}); }, []);
 
   const apply = async (fn: () => Promise<unknown>) => {
     setError('');
@@ -107,6 +110,25 @@ export default function AdminPanel() {
     await load(); void loadTalents();
   };
 
+  /** mails the access data to the address stored on the account (SMTP) */
+  const sendMail = async (c: Credential) => {
+    setSent((o) => ({ ...o, [c.talentId]: { ok: true, text: 'sende …' } }));
+    try {
+      const r = await api.post<{ to: string }>(`/api/admin/talents/${c.talentId}/send-access`, { password: c.password, reset: c.kind === 'reset' });
+      setSent((o) => ({ ...o, [c.talentId]: { ok: true, text: `✓ gesendet an ${r.to}` } }));
+    } catch (e) {
+      setSent((o) => ({ ...o, [c.talentId]: { ok: false, text: (e as Error).message } }));
+    }
+  };
+
+  const sendAll = async () => {
+    for (const c of creds) {
+      const email = emailOf(c);
+      if (!email || sent[c.talentId]?.text.startsWith('✓')) continue;
+      await sendMail({ ...c, email });
+    }
+  };
+
   const resetPassword = (t: EditableTalent) => {
     if (!window.confirm(`Neues vorläufiges Passwort für ${t.name} erzeugen? Das alte Passwort und alle Sitzungen werden ungültig.`)) return;
     void apply(async () => {
@@ -121,10 +143,10 @@ export default function AdminPanel() {
     void apply(() => api.del(`/api/admin/talents/${t.id}`));
   };
 
-  const saveEmail = async (c: Credential, email: string) => {
+  const saveEmail = async (c: Credential, email: string): Promise<boolean> => {
     setCreds((old) => old.map((x) => (x.talentId === c.talentId ? { ...x, email } : x)));
-    try { await api.put(`/api/admin/talents/${c.talentId}/account-email`, { email }); void load(); setError(''); }
-    catch (e) { setError((e as Error).message); }
+    try { await api.put(`/api/admin/talents/${c.talentId}/account-email`, { email }); void load(); setError(''); return true; }
+    catch (e) { setError((e as Error).message); return false; }
   };
 
   // keep the e-mail of the credential cards in sync with what is stored
@@ -153,13 +175,15 @@ export default function AdminPanel() {
             <div className="creds-head">
               <h2 className="cs-h3" style={{ margin: 0 }}>Zugangsdaten zum Versenden</h2>
               <div className="btn-row">
+                {mail.enabled && <button className="btn btn--sm" onClick={() => void sendAll()}>✉ Alle per Mail senden</button>}
                 <button className="btn btn--ghost btn--sm" onClick={() => void navigator.clipboard?.writeText(creds.map(plainText).join('\n\n'))}>Alle kopieren</button>
                 <button className="icon-btn" onClick={() => setCreds([])} aria-label="Schließen" title="Ausblenden">✕</button>
               </div>
             </div>
-            <p className="note">⚠️ Die Passwörter sind nur jetzt sichtbar (auf dem Server wird nur ein Hash gespeichert). Trag die private E-Mail-Adresse ein und klick auf „Mail öffnen“ — die Nachricht ist fertig geschrieben.</p>
+            <p className="note">⚠️ Die Passwörter sind nur jetzt sichtbar (auf dem Server wird nur ein Hash gespeichert). Trag die private E-Mail-Adresse ein und {mail.enabled ? `schick die Zugangsdaten direkt ab (Absender: ${mail.from}) oder nutze „Mail öffnen“` : 'klick auf „Mail öffnen“'} — die Nachricht ist fertig geschrieben.{!mail.enabled && ' (Automatischer Versand: SMTP_HOST und MAIL_FROM setzen.)'}</p>
             {creds.map((c) => (
-              <CredentialRow key={c.talentId} c={{ ...c, email: emailOf(c) }} onEmail={(e) => void saveEmail(c, e)} />
+              <CredentialRow key={c.talentId} c={{ ...c, email: emailOf(c) }} onEmail={(e) => saveEmail(c, e)} mailEnabled={mail.enabled}
+                status={sent[c.talentId]} onSend={() => void sendMail({ ...c, email: emailOf(c) })} />
             ))}
           </div>
         )}
@@ -213,20 +237,32 @@ export default function AdminPanel() {
   );
 }
 
-function CredentialRow({ c, onEmail }: { c: Credential; onEmail: (email: string) => void }) {
+function CredentialRow({ c, onEmail, mailEnabled, status, onSend }: {
+  c: Credential; onEmail: (email: string) => Promise<boolean>; mailEnabled: boolean;
+  status?: { ok: boolean; text: string }; onSend: () => void;
+}) {
   const [email, setEmail] = useState(c.email);
   useEffect(() => { setEmail(c.email); }, [c.email]);
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  /** make sure the address is stored first - the server mails to the stored address only */
+  const send = async () => {
+    if (valid && email.trim().toLowerCase() !== c.email && !(await onEmail(email.trim()))) return;
+    onSend();
+  };
+
   return (
     <div className="cred-row">
       <div className="cred-main">
         <b>{c.name}</b> <span className="pill warn">{c.kind === 'new' ? 'neuer Zugang' : 'Passwort zurückgesetzt'}</span>
         <p><code>{c.username}</code> · <code>{c.password}</code></p>
+        {status && <p className={status.ok ? 'form-ok' : 'form-error'}>{status.text}</p>}
       </div>
       <input className="input" type="email" placeholder="private E-Mail-Adresse" value={email} maxLength={120}
-        onChange={(e) => setEmail(e.target.value)} onBlur={() => { if (email !== c.email && (valid || !email)) onEmail(email.trim()); }} />
+        onChange={(e) => setEmail(e.target.value)} onBlur={() => { if (email !== c.email && (valid || !email)) void onEmail(email.trim()); }} />
       <div className="btn-row">
-        <a className="btn btn--sm" href={mailtoFor({ ...c, email: valid ? email.trim() : '' })} onClick={() => { if (valid && email !== c.email) onEmail(email.trim()); }}>✉ Mail öffnen</a>
+        {mailEnabled && <button className="btn btn--sm" disabled={!valid} title={valid ? '' : 'Erst eine gültige E-Mail-Adresse eintragen'} onClick={() => void send()}>✉ Per Mail senden</button>}
+        <a className={`btn btn--sm ${mailEnabled ? 'btn--ghost' : ''}`} href={mailtoFor({ ...c, email: valid ? email.trim() : '' })}>Mail öffnen</a>
         <button className="btn btn--ghost btn--sm" onClick={() => void navigator.clipboard?.writeText(plainText(c))}>Kopieren</button>
       </div>
     </div>

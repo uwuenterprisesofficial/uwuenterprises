@@ -127,6 +127,10 @@ How it works
   enter the talent's private address (stored with the account, never public) and click *Mail öffnen* - it opens in
   your mail client. Passwords are only visible at that moment (only a hash is stored); *Neues Passwort* issues a new one.
   On first login the talent **must choose their own password** before they can do anything else.
+- **Automatic mail (SMTP, optional):** set `SMTP_HOST`, `MAIL_FROM` (+ `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`,
+  `PUBLIC_URL`, see `.env.example`). The credentials panel then offers *Per Mail senden* (and *Alle senden*) which mails the
+  access data to the address stored on the account. The server only sends the still-unchanged temporary password to that stored
+  address, and the startup log tells you whether the SMTP server is reachable. Without SMTP the *Mail öffnen* link keeps working.
 - Passwords are hashed with scrypt, sessions are random tokens (only a hash is stored) in an `HttpOnly` cookie,
   login attempts are throttled, state-changing requests must come from the site's own origin (CSRF).
   Put the site behind HTTPS (the cookie is `Secure` automatically when the request is HTTPS / `X-Forwarded-Proto`),
