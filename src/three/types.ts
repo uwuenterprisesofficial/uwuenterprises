@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Talent } from '../types';
 
 export interface Pick {
   label: string;
@@ -16,6 +17,7 @@ export interface Station {
 }
 
 export interface WorldCtx {
+  talents: Talent[];
   sparkle: THREE.Texture;
   navigate: (path: string) => void;
   pointer: THREE.Vector2;      // -1..1

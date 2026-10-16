@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { part, toon, glow, rbox, sphere, heartShape, starShape, sparkleField } from '../kit';
 import type { Station, WorldCtx } from '../types';
-import { PRODUCTS, TALENTS } from '../../data';
+import { PRODUCTS } from '../../data';
 
 /** UI-mock of the Moody dashboard, drawn to a canvas. */
 function moodyTexture() {
@@ -107,7 +107,7 @@ export function createTools(ctx: WorldCtx): Station {
   // polaroids with the real talent photos
   const cards: THREE.Group[] = [];
   const spots: [number, number, number][] = [[-3.4, 1.25, 0.12], [-1.35, 0.95, -0.1], [0.9, 1.3, 0.08], [3.2, 0.9, -0.12]];
-  TALENTS.slice(0, 4).forEach((t, i) => {
+  ctx.talents.slice(0, 4).forEach((t, i) => {
     const card = new THREE.Group();
     card.add(part(rbox(1.7, 2.1, 0.06, 0.04), 0xfffaf5, 0.02));
     const img = new THREE.Mesh(

@@ -47,11 +47,11 @@ src/
 └── styles/global.css     # design tokens (:root vars) + all styling
 ```
 
-- **Picture permission:** `blurImages: true` on a talent (src/data/index.ts) blurs all their pictures (roster, 3D scene, profile, gallery, lightbox, puzzle). `npm run build` additionally replaces their image files in `dist/` with irreversibly blurred versions (`vite.config.ts`), so the real photos are never published. Remove the flag once they approve. (`npm run dev` still serves the originals locally.)
+- **Picture permission:** managed in the Creator Space (see below) - the server serves blurred copies until a talent approves.
 - Add a **product/tool**: `PRODUCTS` in `src/data/index.ts` (shown in the Tool Lab section; the 3D window opens the first one).
 - Add an **outfit**: `OUTFITS` in `src/state/store.ts`.
 - Station positions / camera framing / sky colours: `POSES` in `src/three/World.ts`.
-- Talent frames on the runway are taken from the first 3 entries of `TALENTS` (photo = `image`).
+- Talents (and their pictures) come from the database / Creator Space; the runway shows up to 7 of them.
 - Falls back to a flat gradient if WebGL fails; respects `prefers-reduced-motion`.
 
 ## Routes
@@ -104,3 +104,52 @@ docker compose up -d   # serves it on http://localhost:8080
 
 Required repository secrets (Settings -> Secrets and variables -> Actions):
 `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` (a registry account / access token with push rights).
+
+## Creator Space (logins, editing, management)
+
+`/creator` is the login for talents and management.
+
+| Role | Can do |
+|------|--------|
+| **Talent** | edit their own page: name, subtitle, category, bio, paragraphs, tags, socials, facts, profile picture, gallery (upload, reorder, alt text, puzzle lock, delete), approve / withdraw permission to show their pictures, change password |
+| **Management** | everything a talent can (for every talent) + create talents **with their account**, show/hide a page, lock/unlock a login, force-blur pictures, reset passwords, reorder, delete, create other management accounts |
+
+How it works
+
+- `server/` is a small Node server (Fastify + SQLite via `node:sqlite` + sharp). In production it serves the
+  built site **and** the API from one container; in development Vite proxies `/api` and `/media` to it.
+- Data lives in `DATA_DIR` (`./data` in dev, the `/data` volume in Docker): `uwu.db` + `uploads/`. **Back this up.**
+- First start: the five original talents are imported from `seed/talents/` and the first management account is
+  created from `ADMIN_USERNAME` / `ADMIN_PASSWORD` (if no password is set, a random one is printed in the log and
+  must be changed at first login). Seeded talents have no login yet: use *Account anlegen* in the management list.
+- **Getting talents in:** in the management list click *Accounts für alle anlegen* (or *Account anlegen* per talent).
+  Each account gets a random temporary password; a panel lists the access data with a ready-written German mail:
+  enter the talent's private address (stored with the account, never public) and click *Mail öffnen* - it opens in
+  your mail client. Passwords are only visible at that moment (only a hash is stored); *Neues Passwort* issues a new one.
+  On first login the talent **must choose their own password** before they can do anything else.
+- Passwords are hashed with scrypt, sessions are random tokens (only a hash is stored) in an `HttpOnly` cookie,
+  login attempts are throttled, state-changing requests must come from the site's own origin (CSRF).
+  Put the site behind HTTPS (the cookie is `Secure` automatically when the request is HTTPS / `X-Forwarded-Proto`),
+  and make sure the reverse proxy forwards the `Host` header.
+- **Picture permission (`blur`)** is enforced by the server: while a talent has not approved their pictures, the
+  public only ever receives an irreversibly blurred copy (`/media/...`); only that talent and management get the real
+  files. Unpublished talents' pictures are not public at all.
+
+```bash
+npm run dev          # Vite (web) + API with auto-reload, http://localhost:5173 ; login at /creator
+npm run build        # website + compiled server
+npm start            # production server (needs the build)
+```
+
+Environment variables: `SERVER_PORT` (4010; the Docker image uses 3000 internally), `DATA_DIR`, `STATIC_DIR`, `SEED_DIR`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`
+(see `.env.example`).
+
+## Docker
+
+The image is now a Node app (API + website). Mount a volume at `/data` (compose does this) or the database and
+uploaded pictures are lost when the container is recreated.
+
+```bash
+cp .env.example .env     # set ADMIN_PASSWORD
+docker compose up -d     # http://localhost:8080  ->  /creator
+```

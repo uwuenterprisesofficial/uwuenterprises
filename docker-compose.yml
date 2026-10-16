@@ -1,6 +1,6 @@
 # Build:  docker compose build        (or: npm run docker:build)
 # Push:   docker compose push         (or: npm run docker:push)
-# Run:    docker compose up -d
+# Run:    docker compose up -d        -> http://localhost:8080   (Creator Space: /creator)
 services:
   web:
     # change the image name in .env (IMAGE=...) if needed
@@ -11,4 +11,13 @@ services:
     container_name: uwuenterprises-web
     restart: unless-stopped
     ports:
-      - "${PORT:-8080}:80"
+      - "${PORT:-8080}:3000"
+    environment:
+      # first management account — only used while the database has no users yet
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-management}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}        # empty = a random one is printed in the container log
+    volumes:
+      - uwu-data:/data                            # database + uploaded pictures: BACK THIS UP
+
+volumes:
+  uwu-data:

@@ -8,8 +8,8 @@ import { createStudio } from './stations/studio';
 import { createGacha } from './stations/gacha';
 import { createContact } from './stations/contact';
 import { createTools } from './stations/tools';
-import { TALENTS } from '../data';
 import { hoverStore, outfitStore } from '../state/store';
+import type { Talent } from '../types';
 
 interface Pose {
   /** world position of the station */
@@ -69,6 +69,7 @@ function blurredCanvas(src: CanvasImageSource & { width: number; height: number 
 
 export interface WorldOptions {
   navigate: (path: string) => void;
+  talents: Talent[];
 }
 
 export class World {
@@ -136,7 +137,7 @@ export class World {
     const sparkle = sparkleTexture();
     const loader = new THREE.TextureLoader();
     const talentTextures = new Map<string, THREE.Texture>();
-    TALENTS.forEach((t) => {
+    opts.talents.forEach((t) => {
       const url = t.thumb ?? t.image;
       if (!url) return;
       const tex = loader.load(url, (img) => {
@@ -152,7 +153,7 @@ export class World {
     });
 
     this.ctx = {
-      sparkle, navigate: opts.navigate, pointer: this.smoothPointer,
+      talents: opts.talents, sparkle, navigate: opts.navigate, pointer: this.smoothPointer,
       outfit: () => outfitStore.get(), talentTextures,
     };
 

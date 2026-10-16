@@ -10,7 +10,7 @@ export default function Footer() {
           <Link key={s.id} to={`/#${s.id}`}>{s.label}</Link>
         ))}
       </nav>
-      <span>© {new Date().getFullYear()} UwU Enterprises ♡</span>
+      <span>© {new Date().getFullYear()} UwU Enterprises ♡ · <Link to="/creator">Creator Space 🔑</Link></span>
     </footer>
   );
 }

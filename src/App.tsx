@@ -8,6 +8,9 @@ import Footer       from './sections/Footer';
 import HomePage     from './pages/HomePage';
 import TalentPage   from './pages/TalentPage';
 import NotFoundPage from './pages/NotFoundPage';
+import CreatorSpace from './pages/creator/CreatorSpace';
+import { loadTalents } from './state/talents';
+import { refreshAuth } from './state/auth';
 import { useSceneScroll } from './hooks/useSceneScroll';
 import { scrollToScene } from './lib/nav';
 
@@ -17,6 +20,8 @@ const WorldCanvas = lazy(() => import('./components/WorldCanvas'));
 export default function App() {
   const { pathname, hash } = useLocation();
   useSceneScroll();
+
+  useEffect(() => { void loadTalents(); void refreshAuth(); }, []);
 
   // new page → start at the top (unless a #deep-link will scroll for us)
   useEffect(() => {
@@ -46,6 +51,7 @@ export default function App() {
         <Routes>
           <Route index element={<HomePage />} />
           <Route path="/talent/:slug" element={<TalentPage />} />
+          <Route path="/creator/*" element={<CreatorSpace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>

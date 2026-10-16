@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect } from 'react';
-import { TALENTS } from '../data';
+import { useTalents } from '../state/talents';
 import TalentSocials from '../components/TalentSocials';
 import PillButton from '../components/PillButton';
 import { SectionTag } from '../components/SectionHeader';
@@ -10,14 +10,16 @@ import type { Talent, TalentStat } from '../types';
 
 export default function TalentPage() {
   const { slug } = useParams<{ slug: string }>();
-  const talent = TALENTS.find((t) => t.slug === slug);
+  const { loaded, list } = useTalents();
+  const talent = list.find((t) => t.slug === slug);
 
   useEffect(() => {
     if (talent) document.title = `${talent.name} — UwU Enterprises`;
     return () => { document.title = 'UwU Enterprises'; };
   }, [talent]);
 
-  if (!talent?.featured) return <NotFound />;
+  if (!loaded) return <div className="page" />;
+  if (!talent) return <NotFound />;
 
   return (
     <div className="page">

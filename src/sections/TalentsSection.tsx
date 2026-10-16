@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
-import { TALENTS } from '../data';
+import { useTalents } from '../state/talents';
 import PillButton from '../components/PillButton';
 import { SectionTag } from '../components/SectionHeader';
 import Pic from '../components/Pic';
 import type { Talent } from '../types';
 
 export default function TalentsSection() {
+  const { list } = useTalents();
   return (
     <section id="talents" className="scene scene--right">
       <div className="panel">
@@ -17,7 +18,7 @@ export default function TalentsSection() {
         </p>
 
         <div className="roster">
-          {TALENTS.map((t) => <Row key={t.id} talent={t} />)}
+          {list.map((t) => <Row key={t.id} talent={t} />)}
         </div>
 
         <div className="btn-row">

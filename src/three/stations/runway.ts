@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { part, toon, glow, rbox, sphere, heartShape, starShape } from '../kit';
 import type { Station, WorldCtx } from '../types';
-import { TALENTS } from '../../data';
 
 /** "?" mystery card for talents that are not announced yet. */
 function mysteryTexture(i: number) {
@@ -65,9 +64,10 @@ export function createRunway(ctx: WorldCtx): Station {
 
   /* frames */
   const frames: THREE.Group[] = [];
+  const TALENTS = ctx.talents.slice(0, 7);
   const COUNT = TALENTS.length;
-  const spacing = COUNT > 4 ? 2.95 : COUNT > 3 ? 3.45 : 3.9;
-  const frameScale = COUNT > 4 ? 0.95 : 1;
+  const spacing = Math.min(3.9, 14.2 / Math.max(COUNT, 1));
+  const frameScale = Math.min(1, spacing / 3.45);
   const layout = TALENTS.map((_, i) => {
     const t = i - (COUNT - 1) / 2; // -1.5 … 1.5 for four frames
     return { x: t * spacing, y: 3.2 - Math.abs(t) * 0.25, z: -1.4 + Math.abs(t) * 0.7, s: frameScale, r: -t * 0.16 };
